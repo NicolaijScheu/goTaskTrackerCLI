@@ -1,14 +1,36 @@
 package cliparser
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
-func ParseArgs(args []string) string {
+func ParseArgs(args []string) (Command, error) {
 
-	for i := 0; i < len(args); i++ {
-		fmt.Println(args[i])
-		if args[i] == "-add" {
-			return "add"
+	//switch statement looking at args[0]
+	switch args[0] {
+	case "-add":
+		//check args length
+		if len(args) > 1 {
+			return Command{Mode: args[0], Parameters: args[1:]}, nil
 		}
+		fmt.Println()
+		return Command{Mode: "", Parameters: []string{}}, errors.New("no values to add a task")
+
+	// case "-update":
+	// 	return "update"
+	// case "-delete":
+	// 	return "delete"
+	// case "-mark":
+	// 	return "mark"
+	// case "-list":
+	// 	return "list"
+	default:
+		return Command{Mode: "", Parameters: []string{}}, errors.New("no command found. try \"-help\"")
 	}
-	return "error"
+}
+
+type Command struct {
+	Mode       string
+	Parameters []string
 }
