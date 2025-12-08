@@ -1,9 +1,10 @@
 package app
 
 import (
-	"bytes"
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 )
@@ -53,41 +54,7 @@ func AddTask(id string, description string, status string, createdAt string) {
 		fmt.Println(err)
 	}
 
-	file, err := os.OpenFile("tasks.json", os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer file.Close()
-
-	//write inside the array
-	content, err := os.ReadFile("tasks.json")
-	if err != nil {
-		panic(err)
-	}
-	//find the [ char
-	pos := bytes.IndexByte(content, '[')
-	if pos == -1 {
-		println("[ nicht gefunden")
-		return
-	}
-
-	newContent := make([]byte, 0, len(content)+len(byteArray))
-
-	newContent = append(newContent, content[:pos+1]...) // file data until [
-	newContent = append(newContent, byteArray...)       // new task object
-
-	//check if comma needed
-	if len(content) > 3 {
-		newContent = append(newContent, []byte(",")...)
-		fmt.Println("comma inserted")
-	}
-	newContent = append(newContent, content[pos+1:]...) // rest of the file
-
-	err = os.WriteFile("tasks.json", newContent, 0644)
-	if err != nil {
-		panic(err)
-	}
+	insertAfterNthOccurrenceStream("tasks.json", '[', byteArray, 1)
 }
 
 // retrieve the task that one wants to update, change values except createdAt
@@ -140,6 +107,104 @@ func listToDo() {
 // show all tasks with status "in-progress" from the json in list
 func listInProgress() {
 
+}
+
+func insertAfterNthOccurrenceStream(filePath string, search byte, textToInsert []byte, n int) error {
+	// Eingabedatei öffnen
+	inputFile, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer inputFile.Close()
+
+	// Temporäre Datei im gleichen Verzeichnis erstellen
+	tempFile, err := os.CreateTemp("", "insert_temp_*.txt")
+	if err != nil {
+		return err
+	}
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath) // Temporäre Datei am Ende löschen
+
+	reader := bufio.NewReader(inputFile)
+	writer := bufio.NewWriter(tempFile)
+
+	count := 0
+	inserted := false
+
+	// Lesen und in temporäre Datei schreiben
+	for {
+		b, err := reader.ReadByte()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			tempFile.Close()
+			return err
+		}
+
+		// Byte in temporäre Datei schreiben
+		if err := writer.WriteByte(b); err != nil {
+			tempFile.Close()
+			return err
+		}
+
+		// Prüfen ob es das gesuchte Zeichen ist
+		if b == search && !inserted {
+			count++
+			if count == n {
+				// Nächstes Zeichen anschauen um zu prüfen ob schon Inhalt da ist
+				nextByte, err := reader.ReadByte()
+				if err != nil && err != io.EOF {
+					tempFile.Close()
+					return err
+				}
+
+				// Wenn das nächste Zeichen kein ] ist, dann ist schon Inhalt vorhanden
+				if err != io.EOF && nextByte != ']' {
+					// Komma vor dem neuen Text einfügen
+					if _, err := writer.Write(textToInsert); err != nil {
+						tempFile.Close()
+						return err
+					}
+					if err := writer.WriteByte(','); err != nil {
+						tempFile.Close()
+						return err
+					}
+				} else {
+					// Kein Inhalt vorhanden, nur neuen Text einfügen
+					if _, err := writer.Write(textToInsert); err != nil {
+						tempFile.Close()
+						return err
+					}
+				}
+
+				// Das bereits gelesene nächste Byte auch schreiben
+				if err != io.EOF {
+					if err := writer.WriteByte(nextByte); err != nil {
+						tempFile.Close()
+						return err
+					}
+				}
+
+				inserted = true
+			}
+		}
+	}
+
+	// Puffer leeren und Dateien schließen
+	if err := writer.Flush(); err != nil {
+		tempFile.Close()
+		return err
+	}
+	tempFile.Close()
+	inputFile.Close()
+
+	// Temporäre Datei über Originaldatei kopieren
+	if err := os.Rename(tempPath, filePath); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type Task struct {
