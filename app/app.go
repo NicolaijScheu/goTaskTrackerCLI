@@ -43,7 +43,7 @@ func Shutdown() {
 }
 
 // store Tasks in a JSON File
-func AddTask(id string, description string, status string, createdAt string) {
+func AddTask(id int, description string, status string, createdAt string) error {
 	//take parameters and write them to the json file
 	// set updatedAt string to ""
 	taskData := Task{ID: id, Description: description, Status: status, CreatedAt: createdAt, UpdatedAt: ""}
@@ -51,27 +51,31 @@ func AddTask(id string, description string, status string, createdAt string) {
 	//create json object to write in file
 	byteArray, err := json.Marshal(taskData)
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 
 	insertAfterNthOccurrenceStream("tasks.json", '[', byteArray, 1)
+	return nil
 }
 
 // retrieve the task that one wants to update, change values except createdAt
-func UpdatedTask(id string, description string, status string, createdAt string, updatedAt string) {
+func UpdateTask(id int, description string, status string, updatedAt string) error {
 
 	//taskData := Task{ID: id, Description: description, Status: status, CreatedAt: createdAt, UpdatedAt: ""}
-	taskData := Task{ID: id, Description: description, Status: status, CreatedAt: createdAt, UpdatedAt: updatedAt}
-	byteArray, err := json.Marshal(taskData)
-	if err != nil {
-		fmt.Println(err)
-	}
+	taskData := Task{ID: id, Description: description, Status: status, UpdatedAt: updatedAt}
 
-	fmt.Println(string(byteArray))
+	// byteArray, err := json.Marshal(taskData)
+	// if err != nil {
+	// 	return err
+	// }
+
+	ReplaceTypedJSONObjectByID("tasks.json", id, taskData)
+	return nil
 }
 
 // delete task from json by id
-func DeleteTask(id string) {
+func DeleteTask(id int) {
+	DeleteTypedJSONObjectByID("tasks.json", id)
 
 	//open json file
 	//find taskobjekt with id
@@ -207,8 +211,98 @@ func insertAfterNthOccurrenceStream(filePath string, search byte, textToInsert [
 	return nil
 }
 
+func ReplaceTypedJSONObjectByID(filePath string, id int, newObject Task) error {
+	// JSON-Datei einlesen
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("fehler beim Lesen der Datei: %w", err)
+	}
+
+	// JSON in Array von Items parsen
+	var items []Task
+	if err := json.Unmarshal(data, &items); err != nil {
+		return fmt.Errorf("fehler beim Parsen des JSON: %w", err)
+	}
+
+	// Nach Item mit der ID suchen und ersetzen
+	found := false
+	for i, item := range items {
+		if item.ID == id {
+			// createdAt vom alten Item übernehmen (falls vorhanden)
+			if item.CreatedAt != "" {
+				newObject.CreatedAt = item.CreatedAt
+			}
+			items[i] = newObject
+			found = true
+
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("objekt mit ID %d nicht gefunden", id)
+	}
+
+	// JSON zurück in Datei schreiben
+	newData, err := json.MarshalIndent(items, "", "  ")
+	if err != nil {
+		return fmt.Errorf("fehler beim Erstellen des JSON: %w", err)
+	}
+
+	if err := os.WriteFile(filePath, newData, 0644); err != nil {
+		return fmt.Errorf("fehler beim Schreiben der Datei: %w", err)
+	}
+
+	return nil
+}
+
+func DeleteTypedJSONObjectByID(filePath string, id int) error {
+	// JSON-Datei einlesen
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("fehler beim Lesen der Datei: %w", err)
+	}
+
+	// JSON in Array von Items parsen
+	var items []Task
+	if err := json.Unmarshal(data, &items); err != nil {
+		return fmt.Errorf("fehler beim Parsen des JSON: %w", err)
+	}
+
+	// Nach Item mit der ID suchen und ersetzen
+	found := false
+	for i, item := range items {
+		if item.ID == id {
+
+			items[i] = items[len(items)-1]
+
+			found = true
+
+			break
+		}
+	}
+
+	filteredItems := items[:len(items)-1]
+
+	if !found {
+		return fmt.Errorf("objekt mit ID %d nicht gefunden", id)
+	}
+
+	// JSON zurück in Datei schreiben
+	newData, err := json.MarshalIndent(filteredItems, "", "  ")
+	if err != nil {
+		return fmt.Errorf("fehler beim Erstellen des JSON: %w", err)
+	}
+
+	if err := os.WriteFile(filePath, newData, 0644); err != nil {
+		return fmt.Errorf("fehler beim Schreiben der Datei: %w", err)
+	}
+
+	return nil
+}
+
 type Task struct {
-	ID          string `json:"id"`
+	ID          int    `json:"id"`
 	Description string `json:"description"`
 	Status      string `json:"status"`
 	CreatedAt   string `json:"createdAt"`

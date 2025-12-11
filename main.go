@@ -5,6 +5,7 @@ import (
 	"goTaskTrackerCLI/app"
 	cliparser "goTaskTrackerCLI/cliParser"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -20,15 +21,29 @@ func main() {
 	app.Start()
 
 	if command.Mode == "-add" {
-		app.AddTask(command.Parameters[0], command.Parameters[1], "todo", time.Now().String())
+		convertedString, err := strconv.Atoi(command.Parameters[0])
+		if err != nil {
+			fmt.Println("Can't convert this to an int!")
+		}
+		app.AddTask(convertedString, command.Parameters[1], "todo", time.Now().String())
 	}
 
-	// if command.Mode == "update" {
-	// 	app.UpdatedTask("1", "Test Task", "todo", time.Now().String(), time.Now().String())
-	// }
+	if command.Mode == "-update" {
+		convertedString, err := strconv.Atoi(command.Parameters[0])
+		if err != nil {
+			fmt.Println("Can't convert this to an int!")
+		}
 
-	// if command.Mode == "delete" {
-	// 	app.DeleteTask("1")
-	// }
+		app.UpdateTask(convertedString, command.Parameters[1], "todo", time.Now().String())
+	}
+
+	if command.Mode == "-delete" {
+		convertedString, err := strconv.Atoi(command.Parameters[0])
+		if err != nil {
+			fmt.Println("Can't convert this to an int!")
+		}
+
+		app.DeleteTask(convertedString)
+	}
 
 }

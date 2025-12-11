@@ -2,7 +2,6 @@ package cliparser
 
 import (
 	"errors"
-	"fmt"
 )
 
 func ParseArgs(args []string) (Command, error) {
@@ -14,9 +13,15 @@ func ParseArgs(args []string) (Command, error) {
 		if len(args) > 1 {
 			return Command{Mode: args[0], Parameters: args[1:]}, nil
 		}
-		fmt.Println()
 		return Command{Mode: "", Parameters: []string{}}, errors.New("no values to add a task")
-
+	case "-update":
+		//check args length
+		if len(args) > 1 {
+			return Command{Mode: args[0], Parameters: args[1:]}, nil
+		}
+		return Command{Mode: "", Parameters: []string{}}, errors.New("no values to update the task")
+	case "-delete":
+		return Command{Mode: args[0], Parameters: args[1:]}, nil
 	// case "-update":
 	// 	return "update"
 	// case "-delete":
